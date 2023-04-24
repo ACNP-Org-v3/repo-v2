@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, send_from_directory, flash, redirect, url_for
 from flask_jwt_extended import jwt_required, current_user as jwt_current_user
-from flask_login import login_required, login_user, current_user, logout_user
+from flask_login import LoginManager, login_required, login_user, current_user, logout_user
 
 from.index import index_views
 
@@ -9,12 +9,22 @@ from App.controllers import (
     jwt_authenticate,
     login 
 )
+login_manager = LoginManager()
+
+
+@login_manager.user_loader
+def load_user(user_id):
+  return RegularUser.query.get(user_id)
 
 auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
 
 '''
 Page/Action Routes
 '''
+@auth_views.route('/', methods=['GET'])
+@auth_views.route('/login', methods=['GET'])
+def login_page():
+  return render_template('login.html')
 
 @auth_views.route('/users', methods=['GET'])
 def get_user_page():
@@ -26,6 +36,25 @@ def get_user_page():
 @login_required
 def identify_page():
     return jsonify({'message': f"username: {current_user.username}, id : {current_user.id}"})
+
+@auth_views.route('/signup', methods=['GET'])
+def signup_page():
+  return render_template('signup.html')
+
+@auth_views.route('/signup', methods=['POST'])
+def signup_action():
+  data = request.form  
+  newuser = User(username=data['username'], email=data['email'], password=data['password'])  
+  try:
+    db.session.add(newuser)
+    db.session.commit()  
+    login_user(newuser)  
+    flash('Account Created!')  
+    return redirect(url_for(''))  
+  except Exception:  
+    db.session.rollback()
+    flash("username or email already exists")  
+  return redirect(url_for('get_user_page'))
 
 
 @auth_views.route('/login', methods=['POST'])
